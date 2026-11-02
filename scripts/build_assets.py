@@ -105,10 +105,6 @@ def defs_common():
     <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7"/>
     <feColorMatrix values="0 0 0 0 0.36  0 0 0 0 0.29  0 0 0 0 0.18  0 0 0 0.10 0"/>
   </filter>
-  <filter id="mottle" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.045 0.07" numOctaves="4" seed="11"/>
-    <feColorMatrix values="0 0 0 0 0.62  0 0 0 0 0.54  0 0 0 0 0.38  0 0 0 3.2 -1.55"/>
-  </filter>
   <filter id="lift" x="-10%" y="-10%" width="120%" height="135%">
     <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="{INK}" flood-opacity="0.20"/>
     <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="{INK}" flood-opacity="0.18"/>
@@ -116,21 +112,7 @@ def defs_common():
   <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#f8f5ec"/>
     <stop offset="1" stop-color="#efe9da"/>
-  </linearGradient>
-  <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
-    <stop offset="0.6" stop-color="#fffdf6" stop-opacity="0"/>
-    <stop offset="1" stop-color="#d9cca8" stop-opacity="0.35"/>
-  </radialGradient>"""
-
-
-def parchment_backdrop(w, h, r=16):
-    return f"""
-  <clipPath id="frame"><rect width="{w}" height="{h}" rx="{r}"/></clipPath>
-  <g clip-path="url(#frame)">
-    <rect width="{w}" height="{h}" fill="{PARCHMENT}"/>
-    <rect width="{w}" height="{h}" filter="url(#mottle)" opacity="0.4"/>
-    <rect width="{w}" height="{h}" filter="url(#grain)"/>
-  </g>"""
+  </linearGradient>"""
 
 
 def deckle(x0, x1, y, depth, seed, step=(1.5, 7)):
@@ -200,24 +182,28 @@ def arrow(x, y, color):
 
 # ----------------------------------------------------------------------- pieces
 
+def paper(shape, W, H, clip_id):
+    """A paper sheet floating on the page itself (no backdrop box), so it
+    blends into GitHub's light or dark background like the buttons do."""
+    return f"""
+  <clipPath id="{clip_id}">{shape}</clipPath>
+  <g filter="url(#lift)">{shape.replace("/>", ' fill="url(#sheet)"/>')}</g>
+  <g clip-path="url(#{clip_id})"><rect width="{W}" height="{H}" filter="url(#grain)" opacity="0.5"/></g>
+  {shape.replace("/>", f' fill="none" stroke="{RULE_STRONG}" stroke-opacity="0.55"/>')}"""
+
+
 def hero():
-    W, H = 1000, 470
-    sx0, sy0, sx1, sy1 = 64, 34, 936, 418
-    cx = W / 2
-    body = parchment_backdrop(W, H) + f"""
-  <rect width="{W}" height="{H}" rx="16" fill="url(#vignette)"/>
-  <clipPath id="sheetClip"><path d="{torn_sheet(sx0, sy0, sx1, sy1)}"/></clipPath>
-  <g filter="url(#lift)"><path d="{torn_sheet(sx0, sy0, sx1, sy1)}" fill="url(#sheet)"/></g>
-  <g clip-path="url(#sheetClip)"><rect width="{W}" height="{H}" filter="url(#grain)" opacity="0.5"/></g>
-  <g>{ornament(cx, 92)}</g>
-  <g>{text("Ramus Hu", cx, 205, 92, fill=INK, wght=450, anchor="middle", tracking=-0.01)}</g>
-  <g>{text("ARCT musician, experienced full-stack developer", cx, 258, 27, fill=BRASS_DEEP, anchor="middle")}</g>
-  <g>
-    <path d="M{cx - 150},{292} H{cx - 14} M{cx + 14},{292} H{cx + 150}" stroke="{RULE_STRONG}" stroke-width="1"/>
-    <path d="M{cx},{288} L{cx + 4},{292} L{cx},{296} L{cx - 4},{292} Z" fill="{BRASS_SOFT}"/>
-    {text("A high school junior excelling in music and computer science,", cx, 333, 20.5, fill=INK_SOFT, anchor="middle")}
-    {text("exploring the intersections between the two fields.", cx, 362, 20.5, fill=INK_SOFT, anchor="middle")}
-  </g>"""
+    W, H = 1000, 424
+    sx0, sy0, sx1, sy1 = 14, 10, 986, 396
+    cx, dy = W / 2, -24  # dy shifts the original layout up to the new sheet top
+    body = paper(f'<path d="{torn_sheet(sx0, sy0, sx1, sy1)}"/>', W, H, "sheetClip") + f"""
+  {ornament(cx, 92 + dy)}
+  {text("Ramus Hu", cx, 205 + dy, 92, fill=INK, wght=450, anchor="middle", tracking=-0.01)}
+  {text("ARCT musician, experienced full-stack developer", cx, 258 + dy, 27, fill=BRASS_DEEP, anchor="middle")}
+  <path d="M{cx - 150},{292 + dy} H{cx - 14} M{cx + 14},{292 + dy} H{cx + 150}" stroke="{RULE_STRONG}" stroke-width="1"/>
+  <path d="M{cx},{288 + dy} l4,4 l-4,4 l-4,-4 Z" fill="{BRASS_SOFT}"/>
+  {text("A high school junior excelling in music and computer science,", cx, 333 + dy, 20.5, fill=INK_SOFT, anchor="middle")}
+  {text("exploring the intersections between the two fields.", cx, 362 + dy, 20.5, fill=INK_SOFT, anchor="middle")}"""
     return svg(W, H, body, "Ramus Hu, ARCT musician, experienced full-stack developer")
 
 
@@ -249,21 +235,15 @@ def pill(label, sub, ico, *, gold, w=330, h=74):
     return svg(w, h, body, f"{label}{' - ' + sub if sub else ''}")
 
 
-def divider(numeral="I"):
-    W, H = 1000, 64
-    cx, cy = W / 2, 30
+def divider():
+    W, H = 1000, 24
     body = f"""
   <defs><linearGradient id="fade" x1="0" x2="1">
     <stop offset="0" stop-color="{BRASS_SOFT}" stop-opacity="0"/>
     <stop offset="0.5" stop-color="{BRASS_SOFT}" stop-opacity="0.9"/>
-    <stop offset="1" stop-color="{BRASS_SOFT}" stop-opacity="0"/></linearGradient>
-  <radialGradient id="coin" cx="0.4" cy="0.35" r="0.8">
-    <stop offset="0" stop-color="#fffffb"/><stop offset="1" stop-color="#efe7d0"/></radialGradient></defs>
-  <rect x="80" y="{cy}" width="{W - 160}" height="1" fill="url(#fade)"/>
-  <circle cx="{cx}" cy="{cy + 3}" r="18" fill="{UNDER_PAPER}"/>
-  <circle cx="{cx}" cy="{cy}" r="18" fill="url(#coin)" stroke="{RULE_STRONG}"/>
-  {text(numeral, cx, cy + 5, 15, fill=INK_SOFT, wght=500, anchor="middle")}"""
-    return svg(W, H, body, f"Section {numeral}")
+    <stop offset="1" stop-color="{BRASS_SOFT}" stop-opacity="0"/></linearGradient></defs>
+  <rect x="80" y="{H / 2}" width="{W - 160}" height="1" fill="url(#fade)"/>"""
+    return svg(W, H, body, "Section break")
 
 
 def tape(cx, cy, w, angle):
@@ -274,15 +254,12 @@ def tape(cx, cy, w, angle):
 
 
 def connect():
-    W, H = 1000, 300
-    nx0, ny0, nx1, ny1 = 120, 40, 880, 262
+    W, H = 1000, 290
+    nx0, ny0, nx1, ny1 = 60, 40, 940, 262
     cx = W / 2
-    body = parchment_backdrop(W, H) + f"""
-  <rect width="{W}" height="{H}" rx="16" fill="url(#vignette)"/>
-  <g transform="rotate(-0.6 {cx} {H / 2})">
-    <rect x="{nx0}" y="{ny0}" width="{nx1 - nx0}" height="{ny1 - ny0}" fill="url(#sheet)" filter="url(#lift)"/>
-    <rect x="{nx0}" y="{ny0}" width="{nx1 - nx0}" height="{ny1 - ny0}" filter="url(#grain)" opacity="0.6"/>
-  </g>
+    note = f'<rect x="{nx0}" y="{ny0}" width="{nx1 - nx0}" height="{ny1 - ny0}"/>'
+    body = f"""
+  <g transform="rotate(-0.5 {cx} {H / 2})">{paper(note, W, H, "noteClip")}</g>
   {tape(nx0 + 14, ny0 + 6, 104, -32)}
   {tape(nx1 - 14, ny0 + 6, 104, 32)}
   <g>{text("CONNECT RAMUS", cx, 104, 14, fill=BRASS, wght=500, tracking=0.24, anchor="middle")}</g>
@@ -298,7 +275,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     files = {
         "hero.svg": hero(),
-        "divider.svg": divider("I"),
+        "divider.svg": divider(),
         "connect.svg": connect(),
         "btn-music.svg": pill("Music and piano", "Ramus the accompanist", "note", gold=True),
         "btn-stem.svg": pill("STEM side", "That super nerd", "flask", gold=False, w=300),
