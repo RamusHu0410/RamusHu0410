@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign for the README</title>
+<style>
+  :root { --card:#f4f4f6; --edge:#e4e5ea; --dot:#d5d6dd; --ink:#1d1f27; --muted:#7b7e89; --blue:#46598c; --red:#b0574f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #e9eaee;
+         font: 15px/1.5 ui-monospace, "JetBrains Mono", Menlo, monospace; color: var(--ink); }
+  main { width: min(920px, 94vw); }
+  h1 { font: 600 28px/1.2 Georgia, serif; margin: 0 0 4px; }
+  p { margin: 0 0 18px; color: var(--muted); }
+  .pad { position: relative; background: var(--card) radial-gradient(var(--dot) 0.9px, transparent 1px) 6px 6px / 22px 22px;
+         border: 1px solid var(--edge); border-radius: 14px; aspect-ratio: 16 / 7; touch-action: none; cursor: crosshair; }
+  .pad svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .baseline { position: absolute; left: 8%; right: 8%; bottom: 26%; border-bottom: 1px dashed var(--dot); pointer-events: none; }
+  .hint { position: absolute; left: 8%; bottom: calc(26% - 26px); font-size: 12px; letter-spacing: .2em; color: var(--muted); pointer-events: none; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: center; }
+  button { font: inherit; padding: 10px 16px; border-radius: 10px; border: 1px solid #dcdde4; background: #f7f7f9; color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--blue); border-color: #3c4d7a; color: #f5f6fa; }
+  button:disabled { opacity: .45; cursor: default; }
+  label { color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .spacer { flex: 1; }
+  @keyframes draw { from { stroke-dashoffset: 1; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sign your name</h1>
+  <p>Use a trackpad, mouse, or stylus. Your strokes and their speed are saved, so the README replays your signature the way you wrote it.</p>
+  <div class="pad" id="pad">
+    <div class="baseline"></div><div class="hint">SIGN ABOVE THE LINE</div>
+    <svg id="svg" viewBox="0 0 1600 700" fill="none" stroke="#46598c" stroke-width="9"
+         stroke-linecap="round" stroke-linejoin="round"></svg>
+  </div>
+  <div class="bar">
+    <button id="undo">Undo stroke</button>
+    <button id="clear">Clear</button>
+    <button id="replay">Replay</button>
+    <label>Pen <input id="width" type="range" min="4" max="16" value="9"></label>
+    <span class="spacer"></span>
+    <button id="save" class="primary">Download signature.json</button>
+  </div>
+  <p style="margin-top:14px">Then move the file to <b>assets/signature.json</b> (or drop it in the chat) and run
+    <b>python3 scripts/build_assets.py</b>.</p>
+</main>
+<script>
+const svg = document.getElementById("svg");
+const VB = { w: 1600, h: 700 };
+let strokes = [], current = null, t0 = null;
+
+const toSvg = (e) => {
+  const r = svg.getBoundingClientRect();
+  return [(e.clientX - r.left) * VB.w / r.width, (e.clientY - r.top) * VB.h / r.height];
+};
+
+// Same smoothing as build_assets.py: quadratic curves through midpoints.
+function pathData(pts) {
+  if (pts.length === 1) return `M${pts[0][0]},${pts[0][1]} l0.01,0`;
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    d += ` Q${x0},${y0} ${(x0 + x1) / 2},${(y0 + y1) / 2}`;
+  }
+  const last = pts[pts.length - 1];
+  return d + ` L${last[0]},${last[1]}`;
+}
+
+function render() {
+  svg.innerHTML = "";
+  for (const s of strokes) {
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", pathData(s.points));
+    svg.appendChild(p);
+    s.el = p;
+  }
+  document.getElementById("save").disabled = strokes.length === 0;
+  document.getElementById("undo").disabled = strokes.length === 0;
+  document.getElementById("replay").disabled = strokes.length === 0;
+}
+
+svg.addEventListener("pointerdown", (e) => {
+  svg.setPointerCapture(e.pointerId);
+  if (t0 === null) t0 = performance.now();
+  const [x, y] = toSvg(e);
+  current = { points: [[+x.toFixed(1), +y.toFixed(1), Math.round(performance.now() - t0)]] };
+  strokes.push(current);
+  render();
+});
+
+svg.addEventListener("pointermove", (e) => {
+  if (!current) return;
+  const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of events) {
+    const [x, y] = toSvg(ev);
+    const last = current.points[current.points.length - 1];
+    if (Math.hypot(x - last[0], y - last[1]) < 3) continue; // drop jitter
+    current.points.push([+x.toFixed(1), +y.toFixed(1), Math.round(performance.now() - t0)]);
+  }
+  current.el.setAttribute("d", pathData(current.points));
+});
+
+const end = () => { current = null; };
+svg.addEventListener("pointerup", end);
+svg.addEventListener("pointercancel", end);
+
+document.getElementById("undo").onclick = () => { strokes.pop(); if (!strokes.length) t0 = null; render(); };
+document.getElementById("clear").onclick = () => { strokes = []; t0 = null; render(); };
+document.getElementById("width").oninput = (e) => svg.setAttribute("stroke-width", e.target.value);
+
+document.getElementById("replay").onclick = () => {
+  render();
+  let clock = 0;
+  for (const s of strokes) {
+    const pts = s.points;
+    const dur = Math.max(120, Math.min(1600, pts[pts.length - 1][2] - pts[0][2])) / 1000;
+    s.el.setAttribute("pathLength", "1");
+    s.el.style.strokeDasharray = "1";
+    s.el.style.animation = `draw ${dur}s cubic-bezier(.45,.05,.4,1) ${clock}s both`;
+    clock += dur + 0.08;
+  }
+};
+
+document.getElementById("save").onclick = () => {
+  const data = { version: 1, viewBox: [VB.w, VB.h], strokeWidth: +svg.getAttribute("stroke-width"),
+                 strokes: strokes.map((s) => ({ points: s.points })) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.download = "signature.json";
+  a.click();
+};
+
+render();
+</script>
+</body>
+</html>

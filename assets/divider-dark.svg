@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="28" viewBox="0 0 1000 28" role="img" aria-label="Section break">
+<title>Section break</title>
+
+<defs><linearGradient id="fade" x1="0" x2="1">
+  <stop offset="0" stop-color="#5f646c" stop-opacity="0"/>
+  <stop offset="1" stop-color="#5f646c"/></linearGradient></defs>
+<rect x="120" y="16" width="360.0" height="1" fill="url(#fade)"/>
+<rect x="520.0" y="16" width="360.0" height="1" fill="url(#fade)" transform="rotate(180 700.0 16.5)"/>
+<g transform="translate(498.0,20) scale(0.7)" fill="#e9e7df" stroke="#e9e7df"><ellipse cx="0" cy="0" rx="4.6" ry="3.3" transform="rotate(-22)"/><path d="M3.9,-1.2 V-18" stroke-width="1.5" fill="none"/><path d="M3.9,-18 q6,3 6.4,10 q-1.4,-5 -6.4,-6.2 Z" stroke="none"/></g>
+</svg>
